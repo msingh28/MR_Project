@@ -1,0 +1,223 @@
+
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map.Entry;
+import java.util.List;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.util.GenericOptionsParser;
+
+import com.opencsv.CSVParser;
+
+
+public class Problem1 {
+	/**
+	 * Mapper class to apply projection on the flight data
+	 */
+	private static final String ORIGINATED_ORD = "ORIGINATED-ORD";
+	private static final String ARRIVED_JFK = "ARRIVED-JFK";
+	private static int reduceCount = 0;
+	private static long totalDelay = 0;
+	private static long totalFlights = 0;
+	private static double avg = 0.0;
+
+	public static class AverageFlighDelayMapper extends
+			Mapper<Object, Text, Text, IntWritable> {
+		static HashMap<String, Integer> flightToDelay;
+		  @Override
+			protected void setup(Context context) {
+			  flightToDelay = new HashMap<String, Integer>();
+			}
+		  @Override
+			protected void cleanup(Context context) throws IOException, InterruptedException {
+					//System.out.println(mapTally.size());
+					for (Entry<String, Integer> entry : flightToDelay.entrySet()) {
+						Text key = new Text();
+						key.set(entry.getKey());
+						context.write(key, new IntWritable(entry.getValue()));
+					}
+					flightToDelay.clear();
+		  }
+
+		// initialize CSVParser as comma separated values
+		private CSVParser csvParser = new CSVParser(',','"');
+		
+		/**
+		 * Key : Byte offset from where the line is being read
+		 * value : string representing the entire line of flight data
+		 */
+		public void map(Object offset, Text value, Context context)
+				throws IOException, InterruptedException {
+			
+			// Parse the input line
+			String[] line = this.csvParser.parseLine(value.toString());
+			//Text key = new Text();
+		//	Text record = new Text();
+			
+			if (line.length > 0 && isValidEntry(line)) {				
+				// Set only record as (Flag, DepTime, ArrTime, ArrDelayMinutes)
+				//String mapRecord = getMapOutputRecord(line);
+				String key = (line[0]+ ":" +line[8]).toLowerCase();
+				
+				if(flightToDelay.containsKey(key)) {
+	        		int delay = flightToDelay.get(key) + Integer.parseInt(line[14]);
+	        		flightToDelay.put(key,delay);
+	        	}
+				else{
+					flightToDelay.put(key,Integer.parseInt(line[14]));
+				}
+				
+				// Set (FlightDate,IntermediateAirPort) as key				
+				//context.write(key, record);
+			}
+		}
+		
+		/**
+		 * Function determines the validity of the input record
+		 * @param data
+		 * @return
+		 */
+		private boolean isValidEntry(String[] record){
+			
+			if(record == null || record.length == 0){
+				return false;
+			}
+			
+			/*// If any of required field is missing, we'll ignore the record
+			if(record[0].isEmpty() || record[2].isEmpty() || record[5].isEmpty() ||
+					record[11].isEmpty() || record[17].isEmpty() || 
+					record[24].isEmpty() || record[35].isEmpty() || 
+					record[37].isEmpty() || record[41].isEmpty() ||
+					record[43].isEmpty()){
+				return false;
+			}
+			*/
+			// whether flight belongs to June 2007 to May 2008 range
+			/*SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd");			
+			Date flightDate = null;
+			try {
+				flightDate = dateFormatter.parse(record[5]);
+				if(flightDate.before(dateFormatter.parse("2007-06-01")) || 
+						flightDate.after(dateFormatter.parse("2008-05-31"))){
+					return false;
+				}
+
+			} catch (ParseException e) {
+				// Unable to parse input date data
+				return false;
+			}*/
+			
+			/*// Whether flight was cancelled or diverted
+			if(record[41].equals("1") || record[43].equals("1")){
+				return false;
+			}	
+			*/
+			// flight should not be originated from ORD and arrived at JFK
+			// This will be considered as one legged flight
+			/*if (record[11].toLowerCase().equals("ord") && record[17]
+					.toLowerCase().equals("jfk")) {
+				return false;
+			}
+			*/
+			// whether flight was originated from ORD or arrived at JFK
+			/*if(! (record[11].toLowerCase().equals("ord") 
+					|| record[17].toLowerCase().equals("jfk"))){
+				return false;
+			}			*/
+			return true;
+		}
+		
+		/**
+		 * Function generates the output record string for Map output
+		 * @param record : array of string from input record
+		 * @return : String comma separated line
+		 */
+		private String getMapOutputRecord(String[] record){
+			StringBuilder output = new StringBuilder();
+			
+			/*if(record[11].toLowerCase().equals("ord")){
+				// Set flag to determine flight originated from ORD
+				output.append(Problem1.ORIGINATED_ORD).append(",");	
+			}else{
+				// Set flag to determine flight arrived from JFK
+				output.append(Problem1.ARRIVED_JFK).append(",");
+			}*/
+			
+			//output.append(record[24]).append(",");	// DepTime
+			//output.append(record[35]).append(",");	// ArrTime
+			output.append(record[0]).append(",");//Year
+			output.append(record[8]).append(",");// UniqueCarrier
+			output.append(record[14]);				// ArrDelayMinutes
+			
+			return output.toString();
+		}
+	}
+
+	/**
+	 * Reduce class to apply equi-join on the flight Mapper output data
+	 */
+	public static class AverageFlightDelayReducer extends
+	Reducer<Text,IntWritable,Text,IntWritable> {
+	    private IntWritable result = new IntWritable();
+
+	    public void reduce(Text key, Iterable<IntWritable> values, 
+	                       Context context
+	                       ) throws IOException, InterruptedException {
+	    	 int sum = 0;
+	         for (IntWritable val : values) {
+	           sum += val.get();
+	         }
+	      result.set(sum);
+	      context.write(key, result);
+	    }
+	  }
+		
+		
+
+	/**
+	 * @param args
+	 */
+	public static void main(String[] args) throws Exception {
+
+	    Configuration conf = new Configuration();
+	    String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
+	    if (otherArgs.length != 2) {
+	      System.err.println("Usage: AverageFlighDelay <in> <out>");
+	      System.exit(2);
+	    }
+	    Job job = new Job(conf, "Average flight dealy calculator for 2-legged flights");
+	    job.setJarByClass(Problem1.class);
+	    job.setMapperClass(AverageFlighDelayMapper.class);
+	    job.setReducerClass(AverageFlightDelayReducer.class);
+	    job.setNumReduceTasks(1);
+	    job.setOutputKeyClass(Text.class);
+	    job.setOutputValueClass(Text.class);
+	    FileInputFormat.addInputPath(job, new Path(otherArgs[0]));
+	    FileOutputFormat.setOutputPath(job, new Path(otherArgs[1]));
+	    if(job.waitForCompletion(true)){
+	    	//System.out.println("Average Delay: "+Problem1.avg);
+	    	System.exit(0);
+	    }
+	    System.exit(1);
+	}
+
+}
+
+

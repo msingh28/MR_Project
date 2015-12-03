@@ -7,5 +7,6 @@
 <listEntry value="1"/>
 </listAttribute>
 <stringAttribute key="org.eclipse.jdt.launching.MAIN_TYPE" value="Problem1"/>
+<stringAttribute key="org.eclipse.jdt.launching.PROGRAM_ARGUMENTS" value="/home/monisha/Desktop/sample.csv output"/>
 <stringAttribute key="org.eclipse.jdt.launching.PROJECT_ATTR" value="Airlines"/>
 </launchConfiguration>
