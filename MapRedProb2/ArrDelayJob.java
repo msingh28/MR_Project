@@ -1,8 +1,15 @@
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.SortedMap;
+import java.util.SortedSet;
+import java.util.TreeMap;
+import java.util.TreeSet;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -63,10 +70,20 @@ public class ArrDelayJob {
 	}
 
 	public static class ArrDelayReducer extends Reducer<Text, Text, Text, Text> {
+
 		public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
+
 			List<String> p = new ArrayList<String>();
 			List<String> q = new ArrayList<String>();
-			Map<String, Double> delayByAirlines = new HashMap<String, Double>();
+			SortedSet<Map.Entry<String, Double>> sortedset = new TreeSet<Map.Entry<String, Double>>(
+					new Comparator<Map.Entry<String, Double>>() {
+						@Override
+						public int compare(Map.Entry<String, Double> e1, Map.Entry<String, Double> e2) {
+							return e1.getValue().compareTo(e2.getValue());
+						}
+					});
+			SortedMap<String, Double> delayByAirlines = new TreeMap<String, Double>();
+			Map<String, Integer> airlinesCount = new HashMap<String, Integer>();
 			for (Text value : values) {
 				if (value.toString().contains("P "))
 					p.add(value.toString());
@@ -76,23 +93,32 @@ public class ArrDelayJob {
 			if (q.size() > 0)
 				for (String r : p) {
 					String[] pRecord = r.split(" ");
-					if (delayByAirlines.containsKey(pRecord[1].trim()))
+					if (delayByAirlines.containsKey(pRecord[1].trim())) {
 						delayByAirlines.put(pRecord[1].trim(),
 								delayByAirlines.get(pRecord[1].trim()) + Double.parseDouble(pRecord[2].trim()));
-					else
-						// since some airlines have spaces in their names we
-						// cannot split by space in that case
-						try {
-							delayByAirlines.put(pRecord[1].trim(), Double.parseDouble(pRecord[2].trim()));
-						} catch (NumberFormatException e) {
-							delayByAirlines.put(pRecord[1].trim() + " " + pRecord[2].trim(),
-									Double.parseDouble(pRecord[3].trim()));
-						}
+						airlinesCount.put(pRecord[1].trim(), airlinesCount.get(pRecord[1].trim()) + 1);
+					} else {
+						delayByAirlines.put(pRecord[1].trim(), Double.parseDouble(pRecord[2].trim()));
+						airlinesCount.put(pRecord[1].trim(), 1);
+					}
 				}
+			Double totalDelay = 0.0;
+			for (Map.Entry<String, Integer> e : airlinesCount.entrySet()) {
+				totalDelay = delayByAirlines.get(e.getKey());
+				delayByAirlines.put(e.getKey(), totalDelay / e.getValue());
+			}
+			sortedset.addAll(delayByAirlines.entrySet());
+			Iterator it = sortedset.iterator();
 
-			for (Map.Entry<String, Double> e : delayByAirlines.entrySet())
-				context.write(new Text(key.toString().split(" ")[0]),
-						new Text(e.getKey() + " " + "D" + " " + e.getValue() * -1));
+			while (it.hasNext()) {
+				Map.Entry<String, Double> e = (Entry<String, Double>) it.next();
+				context.write(key, new Text(e.getKey() + " " + e.getValue().toString()));
+			}
+			/*
+			 * for(Map.Entry<String, Double> e:delayByAirlines.entrySet())
+			 * context.write(key, new Text(e.getKey()+" "
+			 * +e.getValue().toString()));
+			 */
 		}
 	}
 
