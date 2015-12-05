@@ -60,12 +60,13 @@ public class BestPerformingAirlines {
 				job.setOutputValueClass(IntWritable.class);
 				FileInputFormat.setInputDirRecursive(job, true);
 				FileInputFormat.setInputPaths(job, new Path(otherArgs[0]));
-				FileOutputFormat.setOutputPath(job, new Path("output/RouteCountsByYear"));
-				FileSystem fs = FileSystem.newInstance(conf);
+				FileOutputFormat.setOutputPath(job, new Path(otherArgs[1]));
+				//FileOutputFormat.setOutputPath(job, new Path("output/RouteCountsByYear"));
+				/*FileSystem fs = FileSystem.newInstance(conf);
 
 				if (fs.exists(new Path("output/RouteCountsByYear"))) {
 					fs.delete(new Path("output/RouteCountsByYear"), true);
-				}
+				}*/
 
 				job.waitForCompletion(true);
 				// Secondary Sort : Part 2
@@ -85,13 +86,15 @@ public class BestPerformingAirlines {
 				job1.setOutputKeyClass(Text.class);
 				job1.setOutputValueClass(Text.class);
 				FileInputFormat.setInputDirRecursive(job1, true);
-				FileInputFormat.setInputPaths(job1, new Path("output/RouteCountsByYear"));
-				FileOutputFormat.setOutputPath(job1, new Path("output/TopBusiest"));
-				FileSystem fs1 = FileSystem.newInstance(conf1);
+				FileInputFormat.setInputPaths(job, new Path(otherArgs[1]));
+				//FileInputFormat.setInputPaths(job1, new Path("output/RouteCountsByYear"));
+				FileOutputFormat.setOutputPath(job, new Path(otherArgs[2]));
+				//FileOutputFormat.setOutputPath(job1, new Path("output/TopBusiest"));
+				/*FileSystem fs1 = FileSystem.newInstance(conf1);
 
 				if (fs1.exists(new Path("output/TopBusiest"))) {
 					fs1.delete(new Path("output/TopBusiest"), true);
-				}
+				}*/
 				job1.waitForCompletion(true);
 
 				/*
@@ -111,14 +114,16 @@ public class BestPerformingAirlines {
 				job2.setOutputKeyClass(Text.class);
 				job2.setOutputValueClass(Text.class);
 				FileInputFormat.setInputDirRecursive(job2, true);
-				FileInputFormat.setInputPaths(job2, new Path("output/TopBusiest"));
+				FileInputFormat.setInputPaths(job, new Path(otherArgs[2]));
+				//FileInputFormat.setInputPaths(job2, new Path("output/TopBusiest"));
 				FileInputFormat.addInputPath(job2, new Path(otherArgs[0]+"/*"));
-				FileOutputFormat.setOutputPath(job2, new Path("output/TotalArrDelayByYearAndByAirlines"));
-				FileSystem fs2 = FileSystem.newInstance(conf2);
+				FileOutputFormat.setOutputPath(job2, new Path(otherArgs[3]));
+				//FileOutputFormat.setOutputPath(job2, new Path("output/TotalArrDelayByYearAndByAirlines"));
+				/*FileSystem fs2 = FileSystem.newInstance(conf2);
 
 				if (fs2.exists(new Path("output/TotalArrDelayByYearAndByAirlines"))) {
 					fs2.delete(new Path("output/TotalArrDelayByYearAndByAirlines"), true);
-				}
+				}*/
 				System.exit(job2.waitForCompletion(true)? 0 :1);
 	}
 
