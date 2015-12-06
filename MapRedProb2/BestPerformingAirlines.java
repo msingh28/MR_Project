@@ -47,7 +47,7 @@ public class BestPerformingAirlines {
 				Configuration conf = new Configuration();
 				String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
 				if (otherArgs.length < 2) {
-					System.err.println("Usage: FrequentRoute <inputFile> [<inputFile>...] <outputFile>");
+					System.err.println("Usage: BestPerformingAirlines <inputFile> [<inputFile>...] <outputFile>");
 					System.exit(2);
 				}
 				@SuppressWarnings("deprecation")
@@ -86,9 +86,9 @@ public class BestPerformingAirlines {
 				job1.setOutputKeyClass(Text.class);
 				job1.setOutputValueClass(Text.class);
 				FileInputFormat.setInputDirRecursive(job1, true);
-				FileInputFormat.setInputPaths(job, new Path(otherArgs[1]));
+				FileInputFormat.setInputPaths(job1, new Path(otherArgs[1]));
 				//FileInputFormat.setInputPaths(job1, new Path("output/RouteCountsByYear"));
-				FileOutputFormat.setOutputPath(job, new Path(otherArgs[2]));
+				FileOutputFormat.setOutputPath(job1, new Path(otherArgs[2]));
 				//FileOutputFormat.setOutputPath(job1, new Path("output/TopBusiest"));
 				/*FileSystem fs1 = FileSystem.newInstance(conf1);
 
@@ -107,14 +107,15 @@ public class BestPerformingAirlines {
 				job2.setJarByClass(ArrDelayJob.class);
 				job2.setMapperClass(ArrDelayJob.ArrDelayMapper.class);
 				job2.setReducerClass(ArrDelayJob.ArrDelayReducer.class);
-				//job2.setNumReduceTasks(2);
+				job2.setPartitionerClass(ArrDelayJob.ArrDelayPartitioner.class);
+				job2.setNumReduceTasks(22);
 				job2.setMapOutputKeyClass(Text.class);
 				job2.setMapOutputValueClass(Text.class);
 
 				job2.setOutputKeyClass(Text.class);
 				job2.setOutputValueClass(Text.class);
 				FileInputFormat.setInputDirRecursive(job2, true);
-				FileInputFormat.setInputPaths(job, new Path(otherArgs[2]));
+				FileInputFormat.setInputPaths(job2, new Path(otherArgs[2]));
 				//FileInputFormat.setInputPaths(job2, new Path("output/TopBusiest"));
 				FileInputFormat.addInputPath(job2, new Path(otherArgs[0]+"/*"));
 				FileOutputFormat.setOutputPath(job2, new Path(otherArgs[3]));

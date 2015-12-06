@@ -6,6 +6,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.NoSuchElementException;
 import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
@@ -17,6 +18,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
@@ -69,6 +71,14 @@ public class ArrDelayJob {
 		}
 	}
 
+	public static class ArrDelayPartitioner extends Partitioner<Text, Text> {
+
+		@Override
+		public int getPartition(Text key, Text value, int numReducers) {
+			return Integer.parseInt(key.toString().split(" ")[0]) - 1987;
+		}
+	}
+
 	public static class ArrDelayReducer extends Reducer<Text, Text, Text, Text> {
 
 		public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
@@ -90,7 +100,7 @@ public class ArrDelayJob {
 				else if (value.toString().contains("Q "))
 					q.add(value.toString());
 			}
-			if (q.size() > 0)
+			if (q.size() > 0) {
 				for (String r : p) {
 					String[] pRecord = r.split(" ");
 					if (delayByAirlines.containsKey(pRecord[1].trim())) {
@@ -102,23 +112,18 @@ public class ArrDelayJob {
 						airlinesCount.put(pRecord[1].trim(), 1);
 					}
 				}
-			Double totalDelay = 0.0;
-			for (Map.Entry<String, Integer> e : airlinesCount.entrySet()) {
-				totalDelay = delayByAirlines.get(e.getKey());
-				delayByAirlines.put(e.getKey(), totalDelay / e.getValue());
-			}
-			sortedset.addAll(delayByAirlines.entrySet());
-			Iterator it = sortedset.iterator();
+				Double totalDelay = 0.0;
+				for (Map.Entry<String, Integer> e : airlinesCount.entrySet()) {
+					totalDelay = delayByAirlines.get(e.getKey());
+					delayByAirlines.put(e.getKey(), totalDelay / e.getValue());
+				}
+				sortedset.addAll(delayByAirlines.entrySet());
+				Map.Entry<String, Double> eBest = sortedset.first();
+				Map.Entry<String, Double> eWorst = sortedset.last();
 
-			while (it.hasNext()) {
-				Map.Entry<String, Double> e = (Entry<String, Double>) it.next();
-				context.write(key, new Text(e.getKey() + " " + e.getValue().toString()));
+				context.write(key, new Text(eBest.getKey() + " " + eBest.getValue().toString()));
+				context.write(key, new Text(eWorst.getKey() + " " + eWorst.getValue().toString()));
 			}
-			/*
-			 * for(Map.Entry<String, Double> e:delayByAirlines.entrySet())
-			 * context.write(key, new Text(e.getKey()+" "
-			 * +e.getValue().toString()));
-			 */
 		}
 	}
 
